@@ -1,0 +1,5 @@
+matplotlib
+numpy
+openbabel
+rmgpy
+scipy

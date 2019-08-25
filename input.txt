@@ -1,0 +1,10 @@
+reac_smi          C=O           # Reactant SMILES
+nbreak            3                 # Maximum number of bonds to be broken
+nform             3                 # Maximum number of bonds to be formed
+dH_cutoff         20                # Heat of reaction cutoff
+nsteps            6                 # Number of gradient evaluations
+nnode             20                # Desired number of nodes
+lsf               0.7               # Line search factor
+tol               0.05              # Perpendicular gradient tolerance
+nLSTnodes         100               # Number of nodes for LST interpolation
+theory            b3lyp/6-31+G*     # Level of theory
