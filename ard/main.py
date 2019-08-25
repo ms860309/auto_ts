@@ -125,7 +125,7 @@ class ARD(object):
         thermo_db = ThermoDatabase()
         thermo_db.load(os.path.join(settings['database.directory'], 'thermo'))
         thermo_db.libraryOrder = ['primaryThermoLibrary', 'NISTThermoLibrary', 'thermo_DFT_CCSDTF12_BAC',
-                                  'CBS_QB3_1dHR', 'DFT_QCI_thermo', 'KlippensteinH2O2', 'GRI-Mech3.0-N', ]
+                                  'CBS_QB3_1dHR', 'DFT_QCI_thermo', 'BurkeH2O2', 'GRI-Mech3.0-N', ]
 
         # Filter reactions based on standard heat of reaction
         H298_reac = reac_mol.getH298(thermo_db)
