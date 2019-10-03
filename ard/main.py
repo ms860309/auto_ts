@@ -50,9 +50,10 @@ class ARD(object):
 
     """
 
-    def __init__(self, reac_smi, nbreak=3, nform=3, dh_cutoff=20.0, theory_low=None,
+    def __init__(self, reac_smiles, nbreak=3, nform=3, dh_cutoff=20.0, theory_low=None,
                  forcefield='mmff94', distance=3.5, output_dir='', **kwargs):
-        self.reac_smi = reac_smi
+        reac_smiles = reac_smiles.split(',')
+        self.reac_smi = [reac_smi for reac_smi in reac_smiles]
         self.nbreak = int(nbreak)
         self.nform = int(nform)
         self.dh_cutoff = float(dh_cutoff)
@@ -71,10 +72,10 @@ class ARD(object):
         the reactant.
         """
         self.logger.info('\nARD initiated on ' + time.asctime() + '\n')
-        reac_mol = self.generateReactant3D()
-        self.reac_smi = reac_mol.write('can').strip()
+        reac_mol_list = self.generateReactant3D()
+        self.reac_smi = [reac_mol.write('can').strip()  for reac_mol in reac_mol_list]
         self.logHeader()
-        return reac_mol
+        return reac_mol_list
 
     def generateReactant3D(self):
         """
@@ -82,10 +83,13 @@ class ARD(object):
         generate a 3D geometry. Return the object and store the corresponding
         :class:`node.Node` object in `self.reactant`.
         """
-        reac_mol = gen3D.readstring('smi', self.reac_smi)
-        reac_mol.addh()
-        reac_mol.gen3D(forcefield=self.forcefield)
-        return reac_mol
+        reac_mol_list = []
+        for e in self.reac_smi:
+            reac_mol = gen3D.readstring('smi', e)
+            reac_mol.addh()
+            reac_mol.gen3D(forcefield=self.forcefield)
+            reac_mol_list.append(reac_mol)
+        return reac_mol_list
 
     def preopt(self, mol, **kwargs):
         """
@@ -115,11 +119,12 @@ class ARD(object):
         reac_mol = self.initialize()
         # self.optimizeReactant(reac_mol, **kwargs)
 
-        gen = Generate(reac_mol)
-        self.logger.info('Generating all possible products...')
-        gen.generateProducts(nbreak=self.nbreak, nform=self.nform)
-        prod_mols = gen.prod_mols
-        self.logger.info('{} possible products generated\n'.format(len(prod_mols)))
+        for a in reac_mol:
+            gen = Generate(a)
+            self.logger.info('Generating all possible products...')
+            gen.generateProducts(nbreak=self.nbreak, nform=self.nform)
+            prod_mols = gen.prod_mols
+            self.logger.info('{} possible products generated\n'.format(len(prod_mols)))
 
         # Load thermo database and choose which libraries to search
         thermo_db = ThermoDatabase()
@@ -224,7 +229,7 @@ class ARD(object):
         self.logger.info('######################################################################')
         self.logger.info('#################### AUTOMATIC REACTION DISCOVERY ####################')
         self.logger.info('######################################################################')
-        self.logger.info('Reactant SMILES: ' + self.reac_smi)
+        #self.logger.info('Reactant SMILES: ' + self.reac_smi[0],self.reac_smi[1])
         self.logger.info('Maximum number of bonds to be broken: ' + str(self.nbreak))
         self.logger.info('Maximum number of bonds to be formed: ' + str(self.nform))
         self.logger.info('Heat of reaction cutoff: {:.1f} kcal/mol'.format(self.dh_cutoff))
@@ -258,7 +263,7 @@ def readInput(input_file):
     A dictionary containing all input parameters and their values is returned.
     """
     # Allowed keywords
-    keys = ('reac_smi', 'nbreak', 'nform', 'dh_cutoff', 'forcefield', 'name',
+    keys = ('reac_smiles', 'nbreak', 'nform', 'dh_cutoff', 'forcefield', 'name',
             'nsteps', 'nnode', 'lsf', 'tol', 'gtol', 'nlstnodes',
             'qprog', 'theory', 'theory_low')
 
@@ -268,6 +273,21 @@ def readInput(input_file):
 
     # Create dictionary
     input_dict = {}
+
+    # Extract remaining keywords and values
+    for line in input_data:
+        if line != '' and not line.strip().startswith('#'):
+            key = line.split()[0].lower()
+            if key not in keys:
+                continue
+            if line.split()[1] == '=':
+                input_dict[key] = line.split()[2]
+            else:
+                input_dict[key] = line.split()[1]
+
+
+
+
 
     # Read geometry block
     read = False
@@ -303,17 +323,6 @@ def readInput(input_file):
         # Add to dictionary
         input_dict['reactant'] = reac_node
         input_dict['product'] = prod_node
-
-    # Extract remaining keywords and values
-    for line in input_data:
-        if line != '' and not line.strip().startswith('#'):
-            key = line.split()[0].lower()
-            if key not in keys:
-                continue
-            if line.split()[1] == '=':
-                input_dict[key] = line.split()[2]
-            else:
-                input_dict[key] = line.split()[1]
 
     # Check if valid method was specified and default to FSM
     try:

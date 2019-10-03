@@ -51,7 +51,7 @@ class Generate(object):
         Set the canonical SMILES for the reactant and extract the atomic
         numbers.
         """
-        self.reac_smi = self.reac_mol.write('can').strip()
+        #self.reac_smi = self.reac_mol.write('can').strip()
         self.atoms = tuple(atom.atomicnum for atom in self.reac_mol)
 
     def generateProducts(self, nbreak=3, nform=3):
