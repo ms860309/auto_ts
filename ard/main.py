@@ -119,12 +119,11 @@ class ARD(object):
         reac_mol = self.initialize()
         # self.optimizeReactant(reac_mol, **kwargs)
 
-        for a in reac_mol:
-            gen = Generate(a)
-            self.logger.info('Generating all possible products...')
-            gen.generateProducts(nbreak=self.nbreak, nform=self.nform)
-            prod_mols = gen.prod_mols
-            self.logger.info('{} possible products generated\n'.format(len(prod_mols)))
+        gen = Generate(reac_mol)
+        self.logger.info('Generating all possible products...')
+        gen.generateProducts(nbreak=self.nbreak, nform=self.nform)
+        prod_mols = gen.prod_mols
+        self.logger.info('{} possible products generated\n'.format(len(prod_mols)))
 
         # Load thermo database and choose which libraries to search
         thermo_db = ThermoDatabase()

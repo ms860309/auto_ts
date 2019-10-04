@@ -42,6 +42,7 @@ class Generate(object):
         self.reac_mol = reac_mol
         self.reac_smi = None
         self.atoms = None
+        self.natoms = 0
         self.prod_mols = []
 
         self.initialize()
@@ -52,7 +53,7 @@ class Generate(object):
         numbers.
         """
         #self.reac_smi = self.reac_mol.write('can').strip()
-        self.atoms = tuple(atom.atomicnum for atom in self.reac_mol)
+        self.atoms = [tuple(atom.atomicnum for atom in a) for a in self.reac_mol]
 
     def generateProducts(self, nbreak=3, nform=3):
         """
@@ -61,26 +62,36 @@ class Generate(object):
         bonds.
         """
         if nbreak > 3 or nform > 3:
-            raise Exception('Breaking/forming bonds is limited to a maximum of 3')
+            raise Exception('Breaking/forming bonds is limited fto a maximum of 3')
 
         # Extract bonds as an unmutable sequence (indices are made compatible with atom list)
-        reactant_bonds = tuple(sorted(
-            [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1, bond.GetBondOrder())
-             for bond in pybel.ob.OBMolBondIter(self.reac_mol.OBMol)]
-        ))
+        reactant_bonds_list =[]
+        for b in self.reac_mol:
+            reactant_bonds = tuple(sorted(
+                [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1, bond.GetBondOrder())
+                                         for bond in pybel.ob.OBMolBondIter(b.OBMol)]
+                ))
+            reactant_bonds_list.append(reactant_bonds)
 
         # Extract valences as a mutable sequence
-        reactant_valences = [atom.OBAtom.BOSum() for atom in self.reac_mol]
+        reactant_valences_list = []
+        for c in self.reac_mol:
+            reactant_valences = [atom.OBAtom.BOSum() for atom in c]
+            reactant_bonds_list.append(reactant_valences)
+
+        
 
         # Initialize set for storing bonds of products
         # A set is used to ensure that no duplicate products are added
         products_bonds = set()
 
         # Generate all possibilities for forming bonds
-        natoms = len(self.atoms)
+        for d in self.atoms:
+            self.natoms += len(self.atoms)
+
         bonds_form_all = [(atom1_idx, atom2_idx, 1)
-                          for atom1_idx in range(natoms - 1)
-                          for atom2_idx in range(atom1_idx + 1, natoms)]
+                          for atom1_idx in range(self.natoms - 1)
+                          for atom2_idx in range(atom1_idx + 1, self.natoms)]
 
         # Generate products
         bf_combinations = ((0, 1), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3))
