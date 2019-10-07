@@ -95,7 +95,6 @@ class Molecule(pybel.Molecule):
         self.rotors = None
         self.atom_in_rotor = None
         self.close_atoms = None
-        print(OBMol)
 
     def __getitem__(self, item):
         for atom in self:

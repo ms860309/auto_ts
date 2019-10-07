@@ -55,7 +55,7 @@ class Generate(object):
         #self.reac_smi = self.reac_mol.write('can').strip()
         self.atoms = [tuple(atom.atomicnum for atom in a) for a in self.reac_mol]
 
-    def generateProducts(self, nbreak=3, nform=3):
+    def combineReactants(self, nbreak=3, nform=3):
         """
         Generate all possible products from the reactant under the constraints
         of breaking a maximum of `nbreak` and forming a maximum of `nform`
@@ -77,39 +77,39 @@ class Generate(object):
         reactant_valences_list = []
         for c in self.reac_mol:
             reactant_valences = [atom.OBAtom.BOSum() for atom in c]
-            reactant_bonds_list.append(reactant_valences)
+            reactant_valences_list.append(reactant_valences)
 
         
 
         # Initialize set for storing bonds of products
         # A set is used to ensure that no duplicate products are added
-        products_bonds = set()
+        combineReactants_bonds = set()
 
         # Generate all possibilities for forming bonds
         for d in self.atoms:
             self.natoms += len(self.atoms)
 
-        bonds_form_all = [(atom1_idx, atom2_idx, 1)
+        rbonds_form_all = [(atom1_idx, atom2_idx, 1)
                           for atom1_idx in range(self.natoms - 1)
                           for atom2_idx in range(atom1_idx + 1, self.natoms)]
 
         # Generate products
-        bf_combinations = ((0, 1), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3))
+        rbf_combinations = ((0, 1), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3))
         for bf in bf_combinations:
             if bf[0] <= nbreak and bf[1] <= nform:
-                self._generateProductsHelper(
-                    bf[0],
-                    bf[1],
-                    products_bonds,
-                    reactant_bonds,
-                    reactant_valences,
-                    bonds_form_all
+                self._combineReactantsHelper(
+                    rbf[0],
+                    rbf[1],
+                    combineReactants_bonds,
+                    reactant_bonds_list,
+                    reactant_valences_list,
+                    rbonds_form_all
                 )
 
         # Convert all products to Molecule objects and append to list of product molecules
-        if products_bonds:
-            reac_rmg_mol = self.reac_mol.toRMGMolecule()
-            for bonds in products_bonds:
+        if combineReactants_bonds:
+            reac_rmg_mol = [e.toRMGMolecule() for e in self.reac_mol]
+            for bonds in combineReactants_bonds:
                 mol = gen3D.makeMolFromAtomsAndBonds(self.atoms, bonds, spin=self.reac_mol.spin)
                 mol.setCoordsFromMol(self.reac_mol)
 
@@ -117,7 +117,7 @@ class Generate(object):
                 if not prod_rmg_mol.isIsomorphic(reac_rmg_mol):
                     self.prod_mols.append(mol)
 
-    def _generateProductsHelper(self, nbreak, nform, products, bonds, valences, bonds_form_all, bonds_broken=None):
+    def _combineReactantsHelper(self, nbreak, nform, products, bonds, valences, bonds_form_all, bonds_broken=None):
         """
         Generate products recursively given the number of bonds that should be
         broken and formed, a set for storing the products, a sequence of atoms,
@@ -144,7 +144,7 @@ class Generate(object):
                     bonds_broken[-1] = bond_break
 
                 # Call function recursively to break next bond
-                self._generateProductsHelper(
+                self._combineReactantsHelper(
                     nbreak - 1,
                     nform,
                     products,
@@ -171,7 +171,7 @@ class Generate(object):
                     continue
 
                 # Call function recursively to form next bond
-                self._generateProductsHelper(
+                self._combineReactantsHelper(
                     nbreak,
                     nform - 1,
                     products,
@@ -180,6 +180,8 @@ class Generate(object):
                     bonds_form_all,
                     bonds_broken
                 )
+
+
 
     @staticmethod
     def breakBond(bonds, break_idx):
