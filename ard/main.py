@@ -121,7 +121,7 @@ class ARD(object):
 
         gen = Generate(reac_mol)
         self.logger.info('Generating all possible products...')
-        gen.generateProducts(nbreak=self.nbreak, nform=self.nform)
+        gen.combineReactants(nbreak=self.nbreak, nform=self.nform)
         prod_mols = gen.prod_mols
         self.logger.info('{} possible products generated\n'.format(len(prod_mols)))
 

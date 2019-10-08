@@ -1,4 +1,4 @@
-reac_smiles          CC,CC=O         # Reactant SMILES
+reac_smiles       CC,CC=O         # Reactant SMILES
 nbreak            3                 # Maximum number of bonds to be broken
 nform             3                 # Maximum number of bonds to be formed
 dH_cutoff         20                # Heat of reaction cutoff

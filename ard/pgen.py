@@ -42,7 +42,6 @@ class Generate(object):
         self.reac_mol = reac_mol
         self.reac_smi = None
         self.atoms = None
-        self.natoms = 0
         self.prod_mols = []
 
         self.initialize()
@@ -53,7 +52,9 @@ class Generate(object):
         numbers.
         """
         #self.reac_smi = self.reac_mol.write('can').strip()
-        self.atoms = [tuple(atom.atomicnum for atom in a) for a in self.reac_mol]
+        self.atoms_1 = tuple(atom.atomicnum for atom in self.reac_mol[0])   #for reactant 1 
+        self.atoms_2 = tuple(atom.atomicnum for atom in self.reac_mol[1])   #add reactant 2 to atoms tuple 
+        self.atoms = self.atoms_1 + self.atoms_2
 
     def combineReactants(self, nbreak=3, nform=3):
         """
@@ -65,43 +66,50 @@ class Generate(object):
             raise Exception('Breaking/forming bonds is limited fto a maximum of 3')
 
         # Extract bonds as an unmutable sequence (indices are made compatible with atom list)
-        reactant_bonds_list =[]
-        for b in self.reac_mol:
-            reactant_bonds = tuple(sorted(
-                [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1, bond.GetBondOrder())
-                                         for bond in pybel.ob.OBMolBondIter(b.OBMol)]
-                ))
-            reactant_bonds_list.append(reactant_bonds)
+        reactant_bonds_1 = tuple(sorted(
+            [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1, bond.GetBondOrder())
+             for bond in pybel.ob.OBMolBondIter(self.reac_mol[0].OBMol)]
+        ))
+
+        reactant_1_heavyatom_idx = reactant_bonds_1[-1][0]
+        reactant_1_nonheavyatom_idx = reactant_bonds_1[-1][1]
+
+        reactant_bonds_2 = tuple(sorted(
+            [(bond.GetBeginAtomIdx() + reactant_1_heavyatom_idx, bond.GetEndAtomIdx() + reactant_1_nonheavyatom_idx, bond.GetBondOrder())
+             for bond in pybel.ob.OBMolBondIter(self.reac_mol[1].OBMol)]
+        ))
+
+        reactant_bonds = reactant_bonds_1 + reactant_bonds_2
+
+        print(reactant_bonds)
 
         # Extract valences as a mutable sequence
         reactant_valences_list = []
         for c in self.reac_mol:
             reactant_valences = [atom.OBAtom.BOSum() for atom in c]
             reactant_valences_list.append(reactant_valences)
-
         
+
 
         # Initialize set for storing bonds of products
         # A set is used to ensure that no duplicate products are added
         combineReactants_bonds = set()
 
         # Generate all possibilities for forming bonds
-        for d in self.atoms:
-            self.natoms += len(self.atoms)
-
+        natoms = len(self.atoms)
         rbonds_form_all = [(atom1_idx, atom2_idx, 1)
-                          for atom1_idx in range(self.natoms - 1)
-                          for atom2_idx in range(atom1_idx + 1, self.natoms)]
+                          for atom1_idx in range(natoms - 1)
+                          for atom2_idx in range(atom1_idx + 1, natoms)]
 
         # Generate products
         rbf_combinations = ((0, 1), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3))
-        for bf in bf_combinations:
-            if bf[0] <= nbreak and bf[1] <= nform:
+        for rbf in rbf_combinations:
+            if rbf[0] <= nbreak and rbf[1] <= nform:
                 self._combineReactantsHelper(
                     rbf[0],
                     rbf[1],
                     combineReactants_bonds,
-                    reactant_bonds_list,
+                    reactant_bonds,
                     reactant_valences_list,
                     rbonds_form_all
                 )
@@ -245,6 +253,7 @@ class Generate(object):
             raise Exception('Cannot decrease valence below zero-valence')
 
         # Change valences of both atoms participating in bond
+ 
         valences_temp[bond[0]] += inc
         valences_temp[bond[1]] += inc
 
