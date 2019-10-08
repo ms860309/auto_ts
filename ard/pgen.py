@@ -81,14 +81,12 @@ class Generate(object):
 
         reactant_bonds = reactant_bonds_1 + reactant_bonds_2
 
-        print(reactant_bonds)
 
         # Extract valences as a mutable sequence
         reactant_valences_list = []
         for c in self.reac_mol:
             reactant_valences = [atom.OBAtom.BOSum() for atom in c]
-            reactant_valences_list.append(reactant_valences)
-        
+            reactant_valences_list += reactant_valences
 
 
         # Initialize set for storing bonds of products
@@ -97,33 +95,34 @@ class Generate(object):
 
         # Generate all possibilities for forming bonds
         natoms = len(self.atoms)
-        rbonds_form_all = [(atom1_idx, atom2_idx, 1)
+        bonds_form_all = [(atom1_idx, atom2_idx, 1)
                           for atom1_idx in range(natoms - 1)
                           for atom2_idx in range(atom1_idx + 1, natoms)]
 
         # Generate products
-        rbf_combinations = ((0, 1), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3))
-        for rbf in rbf_combinations:
-            if rbf[0] <= nbreak and rbf[1] <= nform:
+        bf_combinations = ((0, 1), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3))
+        for bf in bf_combinations:
+            if bf[0] <= nbreak and bf[1] <= nform:
                 self._combineReactantsHelper(
-                    rbf[0],
-                    rbf[1],
+                    bf[0],
+                    bf[1],
                     combineReactants_bonds,
                     reactant_bonds,
                     reactant_valences_list,
-                    rbonds_form_all
+                    bonds_form_all
                 )
 
         # Convert all products to Molecule objects and append to list of product molecules
         if combineReactants_bonds:
             reac_rmg_mol = [e.toRMGMolecule() for e in self.reac_mol]
             for bonds in combineReactants_bonds:
-                mol = gen3D.makeMolFromAtomsAndBonds(self.atoms, bonds, spin=self.reac_mol.spin)
-                mol.setCoordsFromMol(self.reac_mol)
+                for new_reactant in self.reac_mol:
+                    mol = gen3D.makeMolFromAtomsAndBonds(self.atoms, bonds, spin=new_reactant.spin)
+                    mol.setCoordsFromMol(new_reactant)
 
-                prod_rmg_mol = mol.toRMGMolecule()
-                if not prod_rmg_mol.isIsomorphic(reac_rmg_mol):
-                    self.prod_mols.append(mol)
+                    prod_rmg_mol = mol.toRMGMolecule()
+                    if not prod_rmg_mol.isIsomorphic(reac_rmg_mol):
+                        self.prod_mols.append(mol)
 
     def _combineReactantsHelper(self, nbreak, nform, products, bonds, valences, bonds_form_all, bonds_broken=None):
         """
@@ -249,6 +248,8 @@ class Generate(object):
         valences_temp = valences[:]
 
         # Check for invalid operation
+        # bond is in bond_broken
+        # valences is reactant_valences
         if inc < 0 and (valences_temp[bond[0]] < inc or valences_temp[bond[1]] < inc):
             raise Exception('Cannot decrease valence below zero-valence')
 

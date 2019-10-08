@@ -256,8 +256,8 @@ class Molecule(pybel.Molecule):
         Set the coordinates for each atom in the current molecule from the
         atoms in another one.
         """
-        if len(self.atoms) != len(other.atoms):
-            raise Exception('Number of atoms must match')
+        #if len(self.atoms) != len(other.atoms):
+            #raise Exception('Number of atoms must match')
 
         for atom, other_atom in zip(self, other):
             coord_vec = other_atom.OBAtom.GetVector()
