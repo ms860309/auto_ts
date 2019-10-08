@@ -23,6 +23,7 @@ import util
 from quantum import QuantumError
 from node import Node
 from pgen import Generate
+from combine import Combine
 
 ###############################################################################
 
@@ -118,12 +119,18 @@ class ARD(object):
         start_time = time.time()
         reac_mol = self.initialize()
         # self.optimizeReactant(reac_mol, **kwargs)
+        com = Combine(reac_mol)
+        self.logger.info('Combining dual reactants to form all possible new_reactants...')
+        com.combineReactants(nbreak=self.nbreak, nform=self.nform)
+        combine_mols = com.combine_mols
+        self.logger.info('{} possible products generated\n'.format(len(combine_mols)))
 
-        gen = Generate(reac_mol)
-        self.logger.info('Generating all possible products...')
-        gen.combineReactants(nbreak=self.nbreak, nform=self.nform)
-        prod_mols = gen.prod_mols
-        self.logger.info('{} possible products generated\n'.format(len(prod_mols)))
+        for new_reactant in combine_mols:
+            gen = Generate(new_reactant)
+            self.logger.info('Generating all possible products...')
+            gen.generateProducts(nbreak=self.nbreak, nform=self.nform)
+            prod_mols = gen.prod_mols
+            self.logger.info('{} possible products generated\n'.format(len(prod_mols)))
 
         # Load thermo database and choose which libraries to search
         thermo_db = ThermoDatabase()

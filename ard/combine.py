@@ -7,8 +7,8 @@ Contains the :class:`Generate` for generating product structures.
 
 import pybel
 
-import ard.props as props
-import ard.gen3D as gen3D
+import props
+import gen3D
 
 ###############################################################################
 
@@ -20,7 +20,7 @@ class StructureError(Exception):
 
 ###############################################################################
 
-class Generate(object):
+class Combine(object):
     """
     Generation of product structures.
     The attributes are:
@@ -42,7 +42,7 @@ class Generate(object):
         self.reac_mol = reac_mol
         self.reac_smi = None
         self.atoms = None
-        self.prod_mols = []
+        self.combine_mols = []
 
         self.initialize()
 
@@ -51,30 +51,47 @@ class Generate(object):
         Set the canonical SMILES for the reactant and extract the atomic
         numbers.
         """
-        self.reac_smi = self.reac_mol.write('can').strip()
-        self.atoms = tuple(atom.atomicnum for atom in self.reac_mol)
+        #self.reac_smi = self.reac_mol.write('can').strip()
+        self.atoms_1 = tuple(atom.atomicnum for atom in self.reac_mol[0])   #for reactant 1 
+        self.atoms_2 = tuple(atom.atomicnum for atom in self.reac_mol[1])   #add reactant 2 to atoms tuple 
+        self.atoms = self.atoms_1 + self.atoms_2
 
-    def generateProducts(self, nbreak=3, nform=3):
+    def combineReactants(self, nbreak=3, nform=3):
         """
         Generate all possible products from the reactant under the constraints
         of breaking a maximum of `nbreak` and forming a maximum of `nform`
         bonds.
         """
         if nbreak > 3 or nform > 3:
-            raise Exception('Breaking/forming bonds is limited to a maximum of 3')
+            raise Exception('Breaking/forming bonds is limited fto a maximum of 3')
 
         # Extract bonds as an unmutable sequence (indices are made compatible with atom list)
-        reactant_bonds = tuple(sorted(
+        reactant_bonds_1 = tuple(sorted(
             [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1, bond.GetBondOrder())
-             for bond in pybel.ob.OBMolBondIter(self.reac_mol.OBMol)]
+             for bond in pybel.ob.OBMolBondIter(self.reac_mol[0].OBMol)]
         ))
 
+        reactant_1_heavyatom_idx = reactant_bonds_1[-1][0]
+        reactant_1_nonheavyatom_idx = reactant_bonds_1[-1][1]
+
+        reactant_bonds_2 = tuple(sorted(
+            [(bond.GetBeginAtomIdx() + reactant_1_heavyatom_idx, bond.GetEndAtomIdx() + reactant_1_nonheavyatom_idx, bond.GetBondOrder())
+             for bond in pybel.ob.OBMolBondIter(self.reac_mol[1].OBMol)]
+        ))
+
+        reactant_bonds = reactant_bonds_1 + reactant_bonds_2
+
+
         # Extract valences as a mutable sequence
-        reactant_valences = [atom.OBAtom.BOSum() for atom in self.reac_mol]
+        reactant_valences_list = []
+        for c in self.reac_mol:
+            reactant_valences = [atom.OBAtom.BOSum() for atom in c]
+            reactant_valences_list += reactant_valences
+
 
         # Initialize set for storing bonds of products
         # A set is used to ensure that no duplicate products are added
-        products_bonds = set()
+        combineReactants_bonds = set()
 
         # Generate all possibilities for forming bonds
         natoms = len(self.atoms)
@@ -86,27 +103,28 @@ class Generate(object):
         bf_combinations = ((0, 1), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3))
         for bf in bf_combinations:
             if bf[0] <= nbreak and bf[1] <= nform:
-                self._generateProductsHelper(
+                self._combineReactantsHelper(
                     bf[0],
                     bf[1],
-                    products_bonds,
+                    combineReactants_bonds,
                     reactant_bonds,
-                    reactant_valences,
+                    reactant_valences_list,
                     bonds_form_all
                 )
 
         # Convert all products to Molecule objects and append to list of product molecules
-        if products_bonds:
-            reac_rmg_mol = self.reac_mol.toRMGMolecule()
-            for bonds in products_bonds:
-                mol = gen3D.makeMolFromAtomsAndBonds(self.atoms, bonds, spin=self.reac_mol.spin)
-                mol.setCoordsFromMol(self.reac_mol)
+        if combineReactants_bonds:
+            reac_rmg_mol = [e.toRMGMolecule() for e in self.reac_mol]
+            for bonds in combineReactants_bonds:
+                for new_reactant in self.reac_mol:
+                    mol = gen3D.makeMolFromAtomsAndBonds(self.atoms, bonds, spin=new_reactant.spin)
+                    mol.setCoordsFromMol(new_reactant)
 
-                prod_rmg_mol = mol.toRMGMolecule()
-                if not prod_rmg_mol.isIsomorphic(reac_rmg_mol):
-                    self.prod_mols.append(mol)
+                    prod_rmg_mol = mol.toRMGMolecule()
+                    if not prod_rmg_mol.isIsomorphic(reac_rmg_mol):
+                        self.combine_mols.append(mol)
 
-    def _generateProductsHelper(self, nbreak, nform, products, bonds, valences, bonds_form_all, bonds_broken=None):
+    def _combineReactantsHelper(self, nbreak, nform, products, bonds, valences, bonds_form_all, bonds_broken=None):
         """
         Generate products recursively given the number of bonds that should be
         broken and formed, a set for storing the products, a sequence of atoms,
@@ -133,7 +151,7 @@ class Generate(object):
                     bonds_broken[-1] = bond_break
 
                 # Call function recursively to break next bond
-                self._generateProductsHelper(
+                self._combineReactantsHelper(
                     nbreak - 1,
                     nform,
                     products,
@@ -160,7 +178,7 @@ class Generate(object):
                     continue
 
                 # Call function recursively to form next bond
-                self._generateProductsHelper(
+                self._combineReactantsHelper(
                     nbreak,
                     nform - 1,
                     products,
@@ -169,6 +187,8 @@ class Generate(object):
                     bonds_form_all,
                     bonds_broken
                 )
+
+
 
     @staticmethod
     def breakBond(bonds, break_idx):
@@ -228,10 +248,13 @@ class Generate(object):
         valences_temp = valences[:]
 
         # Check for invalid operation
+        # bond is in bond_broken
+        # valences is reactant_valences
         if inc < 0 and (valences_temp[bond[0]] < inc or valences_temp[bond[1]] < inc):
             raise Exception('Cannot decrease valence below zero-valence')
 
         # Change valences of both atoms participating in bond
+ 
         valences_temp[bond[0]] += inc
         valences_temp[bond[1]] += inc
 
