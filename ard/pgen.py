@@ -38,8 +38,8 @@ class Generate(object):
           (beginAtomIdx, endAtomIdx, bondOrder)
     """
 
-    def __init__(self, reac_mol):
-        self.reac_mol = reac_mol
+    def __init__(self, new_reactant):
+        self.new_reactant = new_reactant
         self.reac_smi = None
         self.atoms = None
         self.prod_mols = []
@@ -51,8 +51,8 @@ class Generate(object):
         Set the canonical SMILES for the reactant and extract the atomic
         numbers.
         """
-        self.reac_smi = self.reac_mol.write('can').strip()
-        self.atoms = tuple(atom.atomicnum for atom in self.reac_mol)
+        #self.reac_smi = self.reac_mol.write('can').strip()
+        self.atoms = tuple(atom.atomicnum for atom in self.new_reactant)
 
     def generateProducts(self, nbreak=3, nform=3):
         """
@@ -66,11 +66,11 @@ class Generate(object):
         # Extract bonds as an unmutable sequence (indices are made compatible with atom list)
         reactant_bonds = tuple(sorted(
             [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1, bond.GetBondOrder())
-             for bond in pybel.ob.OBMolBondIter(self.reac_mol.OBMol)]
+             for bond in pybel.ob.OBMolBondIter(self.new_reactant.OBMol)]
         ))
 
         # Extract valences as a mutable sequence
-        reactant_valences = [atom.OBAtom.BOSum() for atom in self.reac_mol]
+        reactant_valences = [atom.OBAtom.BOSum() for atom in self.new_reactant]
 
         # Initialize set for storing bonds of products
         # A set is used to ensure that no duplicate products are added
@@ -97,10 +97,10 @@ class Generate(object):
 
         # Convert all products to Molecule objects and append to list of product molecules
         if products_bonds:
-            reac_rmg_mol = self.reac_mol.toRMGMolecule()
+            reac_rmg_mol = self.new_reactant.toRMGMolecule()
             for bonds in products_bonds:
-                mol = gen3D.makeMolFromAtomsAndBonds(self.atoms, bonds, spin=self.reac_mol.spin)
-                mol.setCoordsFromMol(self.reac_mol)
+                mol = gen3D.makeMolFromAtomsAndBonds(self.atoms, bonds, spin=self.new_reactant.spin)
+                mol.setCoordsFromMol(self.new_reactant)
 
                 prod_rmg_mol = mol.toRMGMolecule()
                 if not prod_rmg_mol.isIsomorphic(reac_rmg_mol):

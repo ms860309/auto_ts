@@ -119,18 +119,6 @@ class ARD(object):
         start_time = time.time()
         reac_mol = self.initialize()
         # self.optimizeReactant(reac_mol, **kwargs)
-        com = Combine(reac_mol)
-        self.logger.info('Combining dual reactants to form all possible new_reactants...')
-        com.combineReactants(nbreak=self.nbreak, nform=self.nform)
-        combine_mols = com.combine_mols
-        self.logger.info('{} possible products generated\n'.format(len(combine_mols)))
-
-        for new_reactant in combine_mols:
-            gen = Generate(new_reactant)
-            self.logger.info('Generating all possible products...')
-            gen.generateProducts(nbreak=self.nbreak, nform=self.nform)
-            prod_mols = gen.prod_mols
-            self.logger.info('{} possible products generated\n'.format(len(prod_mols)))
 
         # Load thermo database and choose which libraries to search
         thermo_db = ThermoDatabase()
@@ -138,11 +126,25 @@ class ARD(object):
         thermo_db.libraryOrder = ['primaryThermoLibrary', 'NISTThermoLibrary', 'thermo_DFT_CCSDTF12_BAC',
                                   'CBS_QB3_1dHR', 'DFT_QCI_thermo', 'BurkeH2O2', 'GRI-Mech3.0-N', ]
 
-        # Filter reactions based on standard heat of reaction
-        H298_reac = reac_mol.getH298(thermo_db)
-        self.logger.info('Filtering reactions...')
-        prod_mols_filtered = [mol for mol in prod_mols if self.filterThreshold(H298_reac, mol, thermo_db, **kwargs)]
-        self.logger.info('{} products remaining\n'.format(len(prod_mols_filtered)))
+        #Combine reactants to form new_reactants, then use new_reactants to generate possible product
+        com = Combine(reac_mol)
+        self.logger.info('Combining dual reactants to form all possible new_reactants...')
+        com.combineReactants(nbreak=self.nbreak, nform=self.nform)
+        combined_mols = com.combine_mols
+        self.logger.info('{} possible products generated\n'.format(len(combined_mols)))
+
+        self.logger.info('Generating all possible products...')
+        for new_reactant in combined_mols:
+            gen = Generate(new_reactant)
+            gen.generateProducts(nbreak=self.nbreak, nform=self.nform)
+            prod_mols = gen.prod_mols
+            self.logger.info('{} possible products generated\n'.format(len(prod_mols)))
+             # Filter reactions based on standard heat of reaction
+            H298_reac = new_reactant.getH298(thermo_db)
+            self.logger.info('Filtering reactions...')
+            prod_mols_filtered = [mol for mol in prod_mols if self.filterThreshold(H298_reac, mol, thermo_db, **kwargs)]
+            self.logger.info('{} products remaining\n'.format(len(prod_mols_filtered)))
+
 
         # Generate 3D geometries
         if prod_mols_filtered:

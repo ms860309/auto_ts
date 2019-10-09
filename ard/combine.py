@@ -56,7 +56,7 @@ class Combine(object):
         self.atoms_2 = tuple(atom.atomicnum for atom in self.reac_mol[1])   #add reactant 2 to atoms tuple 
         self.atoms = self.atoms_1 + self.atoms_2
 
-    def combineReactants(self, nbreak=3, nform=3):
+    def combineReactants(self, nbreak=1, nform=1):
         """
         Generate all possible products from the reactant under the constraints
         of breaking a maximum of `nbreak` and forming a maximum of `nform`
@@ -114,17 +114,18 @@ class Combine(object):
 
         # Convert all products to Molecule objects and append to list of product molecules
         if combineReactants_bonds:
-            reac_rmg_mol = [e.toRMGMolecule() for e in self.reac_mol]
+            reac_rmg_mols = [e.toRMGMolecule() for e in self.reac_mol]
             for bonds in combineReactants_bonds:
                 for new_reactant in self.reac_mol:
                     mol = gen3D.makeMolFromAtomsAndBonds(self.atoms, bonds, spin=new_reactant.spin)
                     mol.setCoordsFromMol(new_reactant)
 
                     prod_rmg_mol = mol.toRMGMolecule()
-                    if not prod_rmg_mol.isIsomorphic(reac_rmg_mol):
-                        self.combine_mols.append(mol)
+                    for reac_rmg_mol in reac_rmg_mols:
+                        if not prod_rmg_mol.isIsomorphic(reac_rmg_mol):
+                            self.combine_mols.append(mol)
 
-    def _combineReactantsHelper(self, nbreak, nform, products, bonds, valences, bonds_form_all, bonds_broken=None):
+    def _combineReactantsHelper(self, nbreak, nform, combineReactants_bonds, bonds, valences, bonds_form_all, bonds_broken=None):
         """
         Generate products recursively given the number of bonds that should be
         broken and formed, a set for storing the products, a sequence of atoms,
@@ -137,7 +138,7 @@ class Combine(object):
             bonds_broken = []
         if nbreak == 0 and nform == 0:
             # If no more bonds are to be changed, then add product (base case)
-            products.add((tuple(sorted(bonds))))
+            combineReactants_bonds.add((tuple(sorted(bonds))))
         if nbreak > 0:
             # Break bond
             for bond_break_idx, bond_break in enumerate(bonds):
@@ -154,7 +155,7 @@ class Combine(object):
                 self._combineReactantsHelper(
                     nbreak - 1,
                     nform,
-                    products,
+                    combineReactants_bonds,
                     bonds_break,
                     valences_break,
                     bonds_form_all,
@@ -181,7 +182,7 @@ class Combine(object):
                 self._combineReactantsHelper(
                     nbreak,
                     nform - 1,
-                    products,
+                    combineReactants_bonds,
                     bonds_form,
                     valences_form,
                     bonds_form_all,
@@ -246,7 +247,6 @@ class Combine(object):
         """
         # Create copy of current valences
         valences_temp = valences[:]
-
         # Check for invalid operation
         # bond is in bond_broken
         # valences is reactant_valences
@@ -254,9 +254,10 @@ class Combine(object):
             raise Exception('Cannot decrease valence below zero-valence')
 
         # Change valences of both atoms participating in bond
- 
         valences_temp[bond[0]] += inc
-        valences_temp[bond[1]] += inc
+        valences_temp[bond[1]] += inc       
+        print(valences_temp)
+
 
         # Check if maximum valences are exceeded
         if valences_temp[bond[0]] > props.maxvalences[self.atoms[bond[0]]]:

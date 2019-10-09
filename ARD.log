@@ -1,5 +1,5 @@
 
-ARD initiated on Tue Oct  8 21:41:13 2019
+ARD initiated on Thu Oct 10 01:09:15 2019
 
 ######################################################################
 #################### AUTOMATIC REACTION DISCOVERY ####################
@@ -10,4 +10,4 @@ Heat of reaction cutoff: 20.0 kcal/mol
 Force field for 3D structure generation: mmff94
 ######################################################################
 
-Generating all possible products...
+Combining dual reactants to form all possible new_reactants...
