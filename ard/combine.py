@@ -79,13 +79,17 @@ class Combine(object):
 
 
         reactant_bonds_2 = tuple(sorted(
-            [(bond.GetBeginAtomIdx() + reactant_1_heavyatom_idx, bond.GetEndAtomIdx() + reactant_1_nonheavyatom_idx - 1, bond.GetBondOrder())
+            [(bond.GetBeginAtomIdx() + reactant_1_nonheavyatom_idx, bond.GetEndAtomIdx() + reactant_1_nonheavyatom_idx, bond.GetBondOrder())
              for bond in pybel.ob.OBMolBondIter(self.reac_mol[1].OBMol)]
         ))
         reactant_2_heavyatom_idx = reactant_bonds_2[-1][0]
+        reactant_2_nonheavyatom_idx = reactant_bonds_2[-1][1]
 
         reactant_bonds = reactant_bonds_1 + reactant_bonds_2
 
+        reactant_2_heavyatom_lb =[]
+        for i in range(reactant_1_nonheavyatom_idx+1, reactant_2_heavyatom_idx+1):
+            reactant_2_heavyatom_lb.append(i)
         # Extract valences as a mutable sequence
         global valence_1
         valence_1 = [atom.OBAtom.BOSum() for atom in self.reac_mol[0]]
@@ -257,15 +261,21 @@ class Combine(object):
             raise Exception('Cannot decrease valence below zero-valence')
 
         # Change valences of both atoms participating in bond
-        if bond[0] < reactant_bonds_1[-1][0]+1 and bond[1] < len(valence_1):
+        valences_temp[bond[0]] += inc
+        valences_temp[bond[1]] += inc
+        """
+        if bond[0] not in reactant_2_heavyatom_lb:
+            #if bond[1] not in 
             valences_temp[bond[0]] += inc
             valences_temp[bond[1]] += inc
-        elif bond[0] < reactant_bonds_2[-1][0] and bond[1] < len(valence_1)+reactant_1_heavyatom_idx+1:
+        elif bond[0] in reactant_2_heavyatom_lb:
+            if bond[1] in reactant
             valences_temp[bond[0]+len(valence_1)-reactant_1_heavyatom_idx-1] += inc
             valences_temp[bond[1]+reactant_1_heavyatom_idx] += inc
         elif bond[0] > reactant_bonds_1[-1][0] and bond[0]< reactant_2_heavyatom_idx+1 and bond[1] > len(valence_1)+reactant_1_heavyatom_idx+1:
             valences_temp[bond[0]+len(valence_1)-reactant_1_heavyatom_idx-1] += inc
             valences_temp[bond[1]+reactant_1_heavyatom_idx-1] += inc
+        """
 
 
         # Check if maximum valences are exceeded
