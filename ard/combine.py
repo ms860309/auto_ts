@@ -56,13 +56,13 @@ class Combine(object):
         self.atoms_2 = tuple(atom.atomicnum for atom in self.reac_mol[1])   #add reactant 2 to atoms tuple 
         self.atoms = self.atoms_1 + self.atoms_2
 
-    def combineReactants(self, nbreak=1, nform=1):
+    def combineReactants(self, cbreak=1, cform=1):
         """
         Generate all possible products from the reactant under the constraints
-        of breaking a maximum of `nbreak` and forming a maximum of `nform`
+        of breaking a maximum of `cbreak` and forming a maximum of `cform`
         bonds.
         """
-        if nbreak > 3 or nform > 3:
+        if cbreak > 3 or cform > 3:
             raise Exception('Breaking/forming bonds is limited fto a maximum of 3')
 
         # Extract bonds as an unmutable sequence (indices are made compatible with atom list)
@@ -109,7 +109,7 @@ class Combine(object):
         # Generate products
         bf_combinations = ((0, 1), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3))
         for bf in bf_combinations:
-            if bf[0] <= nbreak and bf[1] <= nform:
+            if bf[0] <= cbreak and bf[1] <= cbreak:
                 self._combineReactantsHelper(
                     bf[0],
                     bf[1],
@@ -132,7 +132,7 @@ class Combine(object):
                         if not prod_rmg_mol.isIsomorphic(reac_rmg_mol):
                             self.combine_mols.append(mol)
 
-    def _combineReactantsHelper(self, nbreak, nform, combineReactants_bonds, bonds, valences, bonds_form_all, bonds_broken=None):
+    def _combineReactantsHelper(self, cbreak, cform, combineReactants_bonds, bonds, valences, bonds_form_all, bonds_broken=None):
         """
         Generate products recursively given the number of bonds that should be
         broken and formed, a set for storing the products, a sequence of atoms,
@@ -143,10 +143,10 @@ class Combine(object):
         """
         if bonds_broken is None:
             bonds_broken = []
-        if nbreak == 0 and nform == 0:
+        if cbreak == 0 and cform == 0:
             # If no more bonds are to be changed, then add product (base case)
             combineReactants_bonds.add((tuple(sorted(bonds))))
-        if nbreak > 0:
+        if cbreak > 0:
             # Break bond
             for bond_break_idx, bond_break in enumerate(bonds):
                 valences_break = self.changeValences(valences, bond_break, -1)
@@ -160,8 +160,8 @@ class Combine(object):
 
                 # Call function recursively to break next bond
                 self._combineReactantsHelper(
-                    nbreak - 1,
-                    nform,
+                    cbreak - 1,
+                    cform,
                     combineReactants_bonds,
                     bonds_break,
                     valences_break,
@@ -171,7 +171,7 @@ class Combine(object):
 
             # Remove last bond that has been broken after loop terminates
             del bonds_broken[-1]
-        elif nform > 0:
+        elif cform > 0:
             # Form bond
             for bond_form in bonds_form_all:
                 # Do not add bond if it has previously been broken
@@ -187,8 +187,8 @@ class Combine(object):
 
                 # Call function recursively to form next bond
                 self._combineReactantsHelper(
-                    nbreak,
-                    nform - 1,
+                    cbreak,
+                    cform - 1,
                     combineReactants_bonds,
                     bonds_form,
                     valences_form,
