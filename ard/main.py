@@ -131,10 +131,16 @@ class ARD(object):
         self.logger.info('Combining dual reactants to form all possible new_reactants...')
         com.combineReactants(nbreak=self.nbreak, nform=self.nform)
         combined_mols = com.combine_mols
-        self.logger.info('{} possible products generated\n'.format(len(combined_mols)))
+        self.logger.info('{} possible new_reactants generated\n'.format(len(combined_mols)))
+        self.logger.info('Generating all possible reactants...')
 
-        self.logger.info('Generating all possible products...')
-        for new_reactant in combined_mols:
+        for reactant in reac_mol:
+            H298_reac = reactant.getH298(thermo_db)
+            self.logger.info('Filtering reactions...')
+            combined_mols_filtered = [mol for mol in combined_mols if self.rfilterThreshold(H298_reac, mol, thermo_db, **kwargs)]
+            self.logger.info('{} reactants remaining\n'.format(len(combined_mols_filtered)))
+
+        for new_reactant in combined_mols_filtered:
             gen = Generate(new_reactant)
             gen.generateProducts(nbreak=self.nbreak, nform=self.nform)
             prod_mols = gen.prod_mols
@@ -142,7 +148,7 @@ class ARD(object):
              # Filter reactions based on standard heat of reaction
             H298_reac = new_reactant.getH298(thermo_db)
             self.logger.info('Filtering reactions...')
-            prod_mols_filtered = [mol for mol in prod_mols if self.filterThreshold(H298_reac, mol, thermo_db, **kwargs)]
+            prod_mols_filtered = [mol for mol in prod_mols if self.pfilterThreshold(H298_reac, mol, thermo_db, **kwargs)]
             self.logger.info('{} products remaining\n'.format(len(prod_mols_filtered)))
 
 
@@ -200,7 +206,20 @@ class ARD(object):
         self.logger.info('\nARD terminated on ' + time.asctime())
         self.logger.info('Total ARD run time: {:.1f} s'.format(time.time() - start_time))
 
-    def filterThreshold(self, H298_reac, prod_mol, thermo_db, **kwargs):
+    def rfilterThreshold(self, H298_reac, prod_mol, thermo_db, **kwargs):
+        """
+        Filter threshold based on standard enthalpies of formation of reactants
+        and products. Returns `True` if the heat of reaction is less than
+        `self.dh_cutoff`, `False` otherwise.
+        """
+        H298_prod = prod_mol.getH298(thermo_db)
+        dH = H298_prod - H298_reac
+
+        if dH < self.dh_cutoff:
+            return True
+        return False
+
+    def pfilterThreshold(self, H298_reac, prod_mol, thermo_db, **kwargs):
         """
         Filter threshold based on standard enthalpies of formation of reactants
         and products. Returns `True` if the heat of reaction is less than
