@@ -1,6 +1,4 @@
 reac_smiles       C,C         # Reactant SMILES
-cbreak            2                 # Maximum number of bonds to be broken (combine)
-cform             1                 # Maximum number of bonds to be formed (combine)
 nbreak            3                 # Maximum number of bonds to be broken
 nform             3                 # Maximum number of bonds to be formed
 dH_cutoff         -15                # Heat of reaction cutoff

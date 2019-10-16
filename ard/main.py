@@ -23,7 +23,6 @@ import util
 from quantum import QuantumError
 from node import Node
 from pgen import Generate
-from combine import Combine
 
 ###############################################################################
 
@@ -51,12 +50,10 @@ class ARD(object):
 
     """
 
-    def __init__(self, reac_smiles, cbreak=2, cform=2, nbreak=3, nform=3, dh_cutoff=20.0, theory_low=None,
+    def __init__(self, reac_smiles, nbreak=3, nform=3, dh_cutoff=20.0, theory_low=None,
                  forcefield='mmff94', distance=3.5, output_dir='', **kwargs):
         reac_smiles = reac_smiles.split(',')
         self.reac_smi = [reac_smi for reac_smi in reac_smiles]
-        self.cbreak = int(cbreak)
-        self.cform = int(cform)
         self.nbreak = int(nbreak)
         self.nform = int(nform)
         self.dh_cutoff = float(dh_cutoff)
@@ -129,66 +126,18 @@ class ARD(object):
                                   'CBS_QB3_1dHR', 'DFT_QCI_thermo', 'BurkeH2O2', 'GRI-Mech3.0-N', ]
 
         #Combine reactants to form new_reactants, then use new_reactants to generate possible product
-        com = Combine(reac_mol)
+        gen = Generate(reac_mol)
         self.logger.info('Combining dual reactants to form all possible new_reactants...')
-        com.combineReactants(cbreak=self.cbreak, cform=self.cform)
-        combined_mols = com.combine_mols
-        self.logger.info('{} possible new_reactants generated\n'.format(len(combined_mols)))
+        gen.Generate(cbreak=self.cbreak, cform=self.cform)
+        prod_mols = gen.prod_mols
+        self.logger.info('{} possible new_reactants generated\n'.format(len(prod_mols)))
             
-        for reactant in reac_mol:
+        for reactant in prod_mols:
             H298_reac = reactant.getH298(thermo_db)
             self.logger.info('Filtering reactions...')
             combined_mols_filtered = [mol for mol in combined_mols if self.rfilterThreshold(H298_reac, mol, thermo_db, **kwargs)]
             self.logger.info('{} reactants remaining\n'.format(len(combined_mols_filtered)))
-
-        # Generate 3D geometries
-            if combined_mols_filtered:
-                self.logger.info('Feasible reactants:\n')
-                rxn_dir = util.makeOutputSubdirectory(self.output_dir, 'new_reactant')
-                Hatom = gen3D.readstring('smi', '[H]')
-                ff = pybel.ob.OBForceField.FindForceField(self.forcefield)
             
-                reac_mol_copy = reactant.copy()
-                for rxn, mol in enumerate(combined_mols_filtered):
-                    mol.gen3D(forcefield=self.forcefield, make3D=False)
-                    arrange3D = gen3D.Arrange3D(reactant, mol)
-                    msg = arrange3D.arrangeIn3D()
-                    if msg != '':
-                        self.logger.info(msg)
-            
-                    ff.Setup(Hatom.OBMol)  # Ensures that new coordinates are generated for next molecule (see above)
-                    reactant.gen3D(make3D=False)
-                    ff.Setup(Hatom.OBMol)
-                    mol.gen3D(make3D=False)
-                    ff.Setup(Hatom.OBMol)
-            
-                    reactant = reactant.toNode()
-                    new_reactant = mol.toNode()
-            
-                    rxn_num = '{:04d}'.format(rxn)
-                    output_dir = util.makeOutputSubdirectory(rxn_dir, rxn_num)
-                    kwargs['output_dir'] = output_dir
-                    kwargs['name'] = rxn_num
-            
-                    self.logger.info('Product {}: {}\n{}\n****\n{}\n'.format(rxn, new_reactant.toSMILES(), reactant, new_reactant))
-                    self.makeInputFile(reactant, new_reactant, **kwargs)
-            
-                    reac_mol.setCoordsFromMol(reac_mol_copy)
-            else:
-                self.logger.info('No feasible reactants found')
-            
-        for new_reactant in combined_mols_filtered:
-            gen = Generate(new_reactant)
-            gen.generateProducts(nbreak=self.nbreak, nform=self.nform)
-            prod_mols = gen.prod_mols
-            self.logger.info('{} possible products generated\n'.format(len(prod_mols)))
-             # Filter reactions based on standard heat of reaction
-            H298_reac = new_reactant.getH298(thermo_db)
-            self.logger.info('Filtering reactions...')
-            prod_mols_filtered = [mol for mol in prod_mols if self.pfilterThreshold(H298_reac, mol, thermo_db, **kwargs)]
-            self.logger.info('{} products remaining\n'.format(len(prod_mols_filtered)))
-
-
             # Generate 3D geometries
             if prod_mols_filtered:
                 self.logger.info('Feasible products:\n')
@@ -293,9 +242,7 @@ class ARD(object):
         self.logger.info('######################################################################')
         self.logger.info('#################### AUTOMATIC REACTION DISCOVERY ####################')
         self.logger.info('######################################################################')
-        self.logger.info('Reactant SMILES: ' + self.reac_smi[0] + ',' + self.reac_smi[1])
-        self.logger.info('Maximum number of bonds to be broken for combining new_reactant: ' + str(self.cbreak))
-        self.logger.info('Maximum number of bonds to be formed for combining new_reactant: ' + str(self.cform))       
+        self.logger.info('Reactant SMILES: ' + self.reac_smi[0] + ',' + self.reac_smi[1])      
         self.logger.info('Maximum number of bonds to be broken: ' + str(self.nbreak))
         self.logger.info('Maximum number of bonds to be formed: ' + str(self.nform))
         self.logger.info('Heat of reaction cutoff: {:.1f} kcal/mol'.format(self.dh_cutoff))
@@ -329,7 +276,7 @@ def readInput(input_file):
     A dictionary containing all input parameters and their values is returned.
     """
     # Allowed keywords
-    keys = ('reac_smiles', 'cbreak', 'cform', 'nbreak', 'nform', 'dh_cutoff', 'forcefield', 'name',
+    keys = ('reac_smiles', 'nbreak', 'nform', 'dh_cutoff', 'forcefield', 'name',
             'nsteps', 'nnode', 'lsf', 'tol', 'gtol', 'nlstnodes',
             'qprog', 'theory', 'theory_low')
 
