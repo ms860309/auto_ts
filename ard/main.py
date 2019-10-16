@@ -125,18 +125,17 @@ class ARD(object):
         thermo_db.libraryOrder = ['primaryThermoLibrary', 'NISTThermoLibrary', 'thermo_DFT_CCSDTF12_BAC',
                                   'CBS_QB3_1dHR', 'DFT_QCI_thermo', 'BurkeH2O2', 'GRI-Mech3.0-N', ]
 
-        #Combine reactants to form new_reactants, then use new_reactants to generate possible product
         gen = Generate(reac_mol)
-        self.logger.info('Combining dual reactants to form all possible new_reactants...')
-        gen.Generate(cbreak=self.cbreak, cform=self.cform)
+        self.logger.info('Generating all possible products...')
+        gen.generateProducts(nbreak=self.nbreak, nform=self.nform)
         prod_mols = gen.prod_mols
-        self.logger.info('{} possible new_reactants generated\n'.format(len(prod_mols)))
+        self.logger.info('{} possible products  generated\n'.format(len(prod_mols)))
             
         for reactant in prod_mols:
             H298_reac = reactant.getH298(thermo_db)
             self.logger.info('Filtering reactions...')
-            combined_mols_filtered = [mol for mol in combined_mols if self.rfilterThreshold(H298_reac, mol, thermo_db, **kwargs)]
-            self.logger.info('{} reactants remaining\n'.format(len(combined_mols_filtered)))
+            prod_mols_filtered = [mol for mol in prod_mols if self.filterThreshold(H298_reac, mol, thermo_db, **kwargs)]
+            self.logger.info('{} products  remaining\n'.format(len(prod_mols_filtered)))
             
             # Generate 3D geometries
             if prod_mols_filtered:
@@ -152,33 +151,33 @@ class ARD(object):
                 # product structures.
                 Hatom = gen3D.readstring('smi', '[H]')
                 ff = pybel.ob.OBForceField.FindForceField(self.forcefield)
-    
-                reac_mol_copy = reac_mol.copy()
-                for rxn, mol in enumerate(prod_mols_filtered):
-                    mol.gen3D(forcefield=self.forcefield, make3D=False)
-                    arrange3D = gen3D.Arrange3D(reac_mol, mol)
-                    msg = arrange3D.arrangeIn3D()
-                    if msg != '':
-                        self.logger.info(msg)
-    
-                    ff.Setup(Hatom.OBMol)  # Ensures that new coordinates are generated for next molecule (see above)
-                    reac_mol.gen3D(make3D=False)
-                    ff.Setup(Hatom.OBMol)
-                    mol.gen3D(make3D=False)
-                    ff.Setup(Hatom.OBMol)
-    
-                    reactant = reac_mol.toNode()
-                    product = mol.toNode()
-    
-                    rxn_num = '{:04d}'.format(rxn)
-                    output_dir = util.makeOutputSubdirectory(rxn_dir, rxn_num)
-                    kwargs['output_dir'] = output_dir
-                    kwargs['name'] = rxn_num
-    
-                    self.logger.info('Product {}: {}\n{}\n****\n{}\n'.format(rxn, product.toSMILES(), reactant, product))
-                    self.makeInputFile(reactant, product, **kwargs)
-    
-                    reac_mol.setCoordsFromMol(reac_mol_copy)
+                for reactant in reac_mol:
+                    reac_mol_copy = reactant.copy()
+                    for rxn, mol in enumerate(prod_mols_filtered):
+                        mol.gen3D(forcefield=self.forcefield, make3D=False)
+                        arrange3D = gen3D.Arrange3D(reactant, mol)
+                        msg = arrange3D.arrangeIn3D()
+                        if msg != '':
+                            self.logger.info(msg)
+        
+                        ff.Setup(Hatom.OBMol)  # Ensures that new coordinates are generated for next molecule (see above)
+                        reactant.gen3D(make3D=False)
+                        ff.Setup(Hatom.OBMol)
+                        mol.gen3D(make3D=False)
+                        ff.Setup(Hatom.OBMol)
+        
+                        reactant = reactant.toNode()
+                        product = mol.toNode()
+        
+                        rxn_num = '{:04d}'.format(rxn)
+                        output_dir = util.makeOutputSubdirectory(rxn_dir, rxn_num)
+                        kwargs['output_dir'] = output_dir
+                        kwargs['name'] = rxn_num
+        
+                        self.logger.info('Product {}: {}\n{}\n****\n{}\n'.format(rxn, product.toSMILES(), reactant, product))
+                        self.makeInputFile(reactant, product, **kwargs)
+        
+                        reac_mol.setCoordsFromMol(reac_mol_copy)
             else:
                 self.logger.info('No feasible products found')
     
@@ -192,20 +191,7 @@ class ARD(object):
         self.logger.info('\nARD terminated on ' + time.asctime())
         self.logger.info('Total ARD run time: {:.1f} s'.format(time.time() - start_time))
 
-    def rfilterThreshold(self, H298_reac, prod_mol, thermo_db, **kwargs):
-        """
-        Filter threshold based on standard enthalpies of formation of reactants
-        and products. Returns `True` if the heat of reaction is less than
-        `self.dh_cutoff`, `False` otherwise.
-        """
-        H298_prod = prod_mol.getH298(thermo_db)
-        dH = H298_prod - H298_reac
-
-        if dH < self.dh_cutoff:
-            return True
-        return False
-
-    def pfilterThreshold(self, H298_reac, prod_mol, thermo_db, **kwargs):
+    def filterThreshold(self, H298_reac, prod_mol, thermo_db, **kwargs):
         """
         Filter threshold based on standard enthalpies of formation of reactants
         and products. Returns `True` if the heat of reaction is less than

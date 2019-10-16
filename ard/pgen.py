@@ -20,7 +20,7 @@ class StructureError(Exception):
 
 ###############################################################################
 
-class Combine(object):
+class Generate(object):
     """
     Generation of product structures.
     The attributes are:
@@ -42,7 +42,7 @@ class Combine(object):
         self.reac_mol = reac_mol
         self.reac_smi = None
         self.atoms = None
-        self.combine_mols = []
+        self.prod_mols = []
 
         self.initialize()
 
@@ -56,7 +56,7 @@ class Combine(object):
         self.atoms_2 = tuple(atom.atomicnum for atom in self.reac_mol[1])   #add reactant 2 to atoms tuple 
         self.atoms = self.atoms_1 + self.atoms_2
 
-    def combineReactants(self, nbreak=3, nform=3):
+    def generateProducts(self, nbreak=3, nform=3):
         """
         Generate all possible products from the reactant under the constraints
         of breaking a maximum of `nbreak` and forming a maximum of `nform`
@@ -66,39 +66,29 @@ class Combine(object):
             raise Exception('Breaking/forming bonds is limited fto a maximum of 3')
 
         # Extract bonds as an unmutable sequence (indices are made compatible with atom list)
-        global reactant_bonds_1
+
         reactant_bonds_1 = tuple(sorted(
             [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1, bond.GetBondOrder())
              for bond in pybel.ob.OBMolBondIter(self.reac_mol[0].OBMol)]
         ))
-        global reactant_1_heavyatom_idx
-        global reactant_2_heavyatom_idx
-        global reactant_bonds_2
-        reactant_1_heavyatom_idx = reactant_bonds_1[-1][0]
+        
         reactant_1_nonheavyatom_idx = reactant_bonds_1[-1][1]
-
 
         reactant_bonds_2 = tuple(sorted(
             [(bond.GetBeginAtomIdx() + reactant_1_nonheavyatom_idx, bond.GetEndAtomIdx() + reactant_1_nonheavyatom_idx, bond.GetBondOrder())
              for bond in pybel.ob.OBMolBondIter(self.reac_mol[1].OBMol)]
         ))
-        reactant_2_heavyatom_idx = reactant_bonds_2[-1][0]
-        reactant_2_nonheavyatom_idx = reactant_bonds_2[-1][1]
 
         reactant_bonds = reactant_bonds_1 + reactant_bonds_2
 
-        reactant_2_heavyatom_lb =[]
-        for i in range(reactant_1_nonheavyatom_idx+1, reactant_2_heavyatom_idx+1):
-            reactant_2_heavyatom_lb.append(i)
         # Extract valences as a mutable sequence
-        global valence_1
         valence_1 = [atom.OBAtom.BOSum() for atom in self.reac_mol[0]]
         valence_2 = [atom.OBAtom.BOSum() for atom in self.reac_mol[1]]
         reactant_valences = valence_1 + valence_2
 
         # Initialize set for storing bonds of products
         # A set is used to ensure that no duplicate products are added
-        combineReactants_bonds = set()
+        products_bonds  = set()
 
         # Generate all possibilities for forming bonds
         natoms = len(self.atoms)
@@ -110,29 +100,29 @@ class Combine(object):
         bf_combinations = ((0, 1), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3))
         for bf in bf_combinations:
             if bf[0] <= nbreak and bf[1] <= nbreak:
-                self._combineReactantsHelper(
+                self._generateProductsHelper(
                     bf[0],
                     bf[1],
-                    combineReactants_bonds,
+                    products_bonds,
                     reactant_bonds,
                     reactant_valences,
                     bonds_form_all
                 )
 
         # Convert all products to Molecule objects and append to list of product molecules
-        if combineReactants_bonds:
+        if products_bonds:
             reac_rmg_mols = [e.toRMGMolecule() for e in self.reac_mol]
-            for bonds in combineReactants_bonds:
-                for new_reactant in self.reac_mol:
-                    mol = gen3D.makeMolFromAtomsAndBonds(self.atoms, bonds, spin=new_reactant.spin)
-                    mol.setCoordsFromMol(new_reactant)
+            for bonds in products_bonds:
+                for reactant in self.reac_mol:
+                    mol = gen3D.makeMolFromAtomsAndBonds(self.atoms, bonds, spin=reactant.spin)
+                    mol.setCoordsFromMol(reactant)
 
                     prod_rmg_mol = mol.toRMGMolecule()
                     for reac_rmg_mol in reac_rmg_mols:
                         if not prod_rmg_mol.isIsomorphic(reac_rmg_mol):
-                            self.combine_mols.append(mol)
+                            self.prod_mols.append(mol)
 
-    def _combineReactantsHelper(self, nbreak, nform, combineReactants_bonds, bonds, valences, bonds_form_all, bonds_broken=None):
+    def _generateProductsHelper(self, nbreak, nform, products, bonds, valences, bonds_form_all, bonds_broken=None):
         """
         Generate products recursively given the number of bonds that should be
         broken and formed, a set for storing the products, a sequence of atoms,
@@ -145,7 +135,7 @@ class Combine(object):
             bonds_broken = []
         if nbreak == 0 and nform == 0:
             # If no more bonds are to be changed, then add product (base case)
-            combineReactants_bonds.add((tuple(sorted(bonds))))
+            products.add((tuple(sorted(bonds))))
         if nbreak > 0:
             # Break bond
             for bond_break_idx, bond_break in enumerate(bonds):
@@ -159,10 +149,10 @@ class Combine(object):
                     bonds_broken[-1] = bond_break
 
                 # Call function recursively to break next bond
-                self._combineReactantsHelper(
+                self._generateProductsHelper(
                     nbreak - 1,
                     nform,
-                    combineReactants_bonds,
+                    products,
                     bonds_break,
                     valences_break,
                     bonds_form_all,
@@ -186,10 +176,10 @@ class Combine(object):
                     continue
 
                 # Call function recursively to form next bond
-                self._combineReactantsHelper(
+                self._generateProductsHelper(
                     nbreak,
                     nform - 1,
-                    combineReactants_bonds,
+                    products,
                     bonds_form,
                     valences_form,
                     bonds_form_all,

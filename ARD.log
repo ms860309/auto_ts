@@ -1,23 +1,21 @@
 
-ARD initiated on Wed Oct 16 01:50:25 2019
+ARD initiated on Wed Oct 16 23:05:53 2019
 
 ######################################################################
 #################### AUTOMATIC REACTION DISCOVERY ####################
 ######################################################################
-Reactant SMILES: C,C
-Maximum number of bonds to be broken for combining new_reactant: 2
-Maximum number of bonds to be formed for combining new_reactant: 1
-Maximum number of bonds to be broken: 3
-Maximum number of bonds to be formed: 3
+Reactant SMILES: C=O,C
+Maximum number of bonds to be broken: 1
+Maximum number of bonds to be formed: 1
 Heat of reaction cutoff: -15.0 kcal/mol
 Force field for 3D structure generation: mmff94
 ######################################################################
 
-Combining dual reactants to form all possible new_reactants...
-464 possible new_reactants generated
+Generating all possible products...
+28 possible products  generated
 
 Filtering reactions...
-64 reactants remaining
+12 products  remaining
 
-Feasible reactants:
+Feasible products:
 
