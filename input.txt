@@ -1,7 +1,7 @@
 reac_smiles       CC=O,C         # Reactant SMILES
-nbreak            3                 # Maximum number of bonds to be broken
-nform             3                 # Maximum number of bonds to be formed
-dH_cutoff         -15                # Heat of reaction cutoff
+nbreak            1                 # Maximum number of bonds to be broken
+nform             1                 # Maximum number of bonds to be formed
+dH_cutoff         90               # Heat of reaction cutoff
 nsteps            6                 # Number of gradient evaluations
 nnode             20                # Desired number of nodes
 lsf               0.7               # Line search factor

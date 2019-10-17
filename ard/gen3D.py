@@ -538,7 +538,7 @@ class Arrange3D(object):
     """
 
     def __init__(self, mol_1, mol_2):
-        if not (0 < len(mol_1.mols) <= 4 and 0 < len(mol_2.mols) <= 4):
+        if not (0 < len(mol_1[0].mols) + len(mol_1[1].mols) <= 4 and 0 < len(mol_2.mols) <= 4):
             raise Exception('More than 4 molecules are not supported')
 
         self.mol_1 = None
@@ -565,7 +565,6 @@ class Arrange3D(object):
         self.mol_1, self.mol_2 = mol_1, mol_2
         self.d_intermol = d_intermol
         self.d_intramol = d_intramol
-
         reactant_1 = [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1)
                        for bond in pybel.ob.OBMolBondIter(mol_1[1].OBMol)]
         reactant_2 = [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1)
@@ -576,10 +575,15 @@ class Arrange3D(object):
                        for bond in pybel.ob.OBMolBondIter(mol_2.OBMol)]
 
         # atom_in_mol tells which mol the atom is in
-        atom_in_mol_1 = [0] * len(mol_1.atoms)
+        atom_in_mol_1 = [0] * (len(mol_1[0].atoms) + len(mol_1[1].atoms))
         atom_in_mol_2 = [0] * len(mol_2.atoms)
-
-        for i, mol_indices in enumerate(mol_1.mols_indices):
+        
+        mol_1_0_indices = mol_1[0].mols_indices
+        _mol_1_1_indices = mol_1[1].mols_indices
+        mol_1_1_indices = map(lambda n:n+len(mol_1_0_indices[0]), _mol_1_1_indices[0])
+        indices_1 = tuple([mol_1_0_indices[0] + mol_1_1_indices])
+        
+        for i, mol_indices in enumerate(indices_1):
             for j in mol_indices:
                 atom_in_mol_1[j] = i
 
@@ -590,12 +594,12 @@ class Arrange3D(object):
         # Initialize broken_bonds list
         for bond in list(set(bonds_mol_2) ^ set(bonds_mol_1)):
             i, j = atom_in_mol_1[bond[0]], atom_in_mol_1[bond[1]]
-            self.bonds_1.append([(i, mol_1.mols_indices[i].index(bond[0])), (j, mol_1.mols_indices[j].index(bond[1]))])
+            self.bonds_1.append([(i, indices_1[i].index(bond[0])), (j, indices_1[j].index(bond[1]))])
             i, j = atom_in_mol_2[bond[0]], atom_in_mol_2[bond[1]]
             self.bonds_2.append([(i, mol_2.mols_indices[i].index(bond[0])), (j, mol_2.mols_indices[j].index(bond[1]))])
 
         # Connectivity tells whether two atoms are linked by a bond
-        natoms = len(mol_1.atoms)
+        natoms = len(mol_1[0].atoms) + len(mol_1[1].atoms)
         connectivity = [[0 for i in range(natoms)] for k in range(natoms)]
 
         for bond in list(set(bonds_mol_1) | set(bonds_mol_2)):
@@ -614,10 +618,10 @@ class Arrange3D(object):
                             continue
                         a, b, c, d = atom_in_mol_1[i], atom_in_mol_1[j], atom_in_mol_1[k], atom_in_mol_1[l]
                         self.torsions_1.append([
-                            (a, mol_1.mols_indices[a].index(i)),
-                            (b, mol_1.mols_indices[b].index(j)),
-                            (c, mol_1.mols_indices[c].index(k)),
-                            (d, mol_1.mols_indices[d].index(l))
+                            (a, indices_1[a].index(i)),
+                            (b, indices_1[b].index(j)),
+                            (c, indices_1[c].index(k)),
+                            (d, indices_1[d].index(l))
                         ])
                         a, b, c, d = atom_in_mol_2[i], atom_in_mol_2[j], atom_in_mol_2[k], atom_in_mol_2[l]
                         self.torsions_2.append([

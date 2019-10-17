@@ -130,13 +130,13 @@ class ARD(object):
         gen.generateProducts(nbreak=self.nbreak, nform=self.nform)
         prod_mols = gen.prod_mols
         self.logger.info('{} possible products  generated\n'.format(len(prod_mols)))
+        
+        #Calculate reactant H
         H298_reac = []
+        aa = 0.0
         for reactant in reac_mol:
-            aa = 0.0
-            aa += reactant.getH298(thermo_db)  
+            aa += float(reactant.getH298(thermo_db))
             H298_reac.append(aa)
-        print(H298_reac)
-
         
         self.logger.info('Filtering reactions...')
         prod_mols_filtered = [mol for mol in prod_mols if self.filterThreshold(H298_reac, mol, thermo_db, **kwargs)]
@@ -156,33 +156,32 @@ class ARD(object):
             # product structures.
             Hatom = gen3D.readstring('smi', '[H]')
             ff = pybel.ob.OBForceField.FindForceField(self.forcefield)
-            for reactant in reac_mol:
-                reac_mol_copy = reactant.copy()
-                for rxn, mol in enumerate(prod_mols_filtered):
-                    mol.gen3D(forcefield=self.forcefield, make3D=False)
-                    arrange3D = gen3D.Arrange3D(reactant, mol)
-                    msg = arrange3D.arrangeIn3D()
-                    if msg != '':
-                        self.logger.info(msg)
-    
-                    ff.Setup(Hatom.OBMol)  # Ensures that new coordinates are generated for next molecule (see above)
-                    reactant.gen3D(make3D=False)
-                    ff.Setup(Hatom.OBMol)
-                    mol.gen3D(make3D=False)
-                    ff.Setup(Hatom.OBMol)
-    
-                    reactant = reactant.toNode()
-                    product = mol.toNode()
-    
-                    rxn_num = '{:04d}'.format(rxn)
-                    output_dir = util.makeOutputSubdirectory(rxn_dir, rxn_num)
-                    kwargs['output_dir'] = output_dir
-                    kwargs['name'] = rxn_num
-    
-                    self.logger.info('Product {}: {}\n{}\n****\n{}\n'.format(rxn, product.toSMILES(), reactant, product))
-                    self.makeInputFile(reactant, product, **kwargs)
-    
-                    reac_mol.setCoordsFromMol(reac_mol_copy)
+            reac_mol_copy = reactant.copy()
+            for rxn, mol in enumerate(prod_mols_filtered):
+                mol.gen3D(forcefield=self.forcefield, make3D=False)
+                arrange3D = gen3D.Arrange3D(reac_mol, mol)
+                msg = arrange3D.arrangeIn3D()
+                if msg != '':
+                    self.logger.info(msg)
+
+                ff.Setup(Hatom.OBMol)  # Ensures that new coordinates are generated for next molecule (see above)
+                reac_mol.gen3D(make3D=False)
+                ff.Setup(Hatom.OBMol)
+                mol.gen3D(make3D=False)
+                ff.Setup(Hatom.OBMol)
+
+                reac_mol = reac_mol.toNode()
+                product = mol.toNode()
+
+                rxn_num = '{:04d}'.format(rxn)
+                output_dir = util.makeOutputSubdirectory(rxn_dir, rxn_num)
+                kwargs['output_dir'] = output_dir
+                kwargs['name'] = rxn_num
+
+                self.logger.info('Product {}: {}\n{}\n****\n{}\n'.format(rxn, product.toSMILES(), reac_mol, product))
+                self.makeInputFile(reac_mol, product, **kwargs)
+
+                reac_mol.setCoordsFromMol(reac_mol_copy)
         else:
             self.logger.info('No feasible products found')
 
@@ -203,8 +202,7 @@ class ARD(object):
         `self.dh_cutoff`, `False` otherwise.
         """
         H298_prod = prod_mol.getH298(thermo_db)
-        dH = H298_prod - H298_reac[0]
-
+        dH = H298_prod - H298_reac[-1]
         if dH < self.dh_cutoff:
             return True
         return False
