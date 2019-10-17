@@ -118,6 +118,7 @@ class Generate(object):
                     mol.setCoordsFromMol(reactant)
 
                     prod_rmg_mol = mol.toRMGMolecule()
+                    #print(prod_rmg_mol)
                     for reac_rmg_mol in reac_rmg_mols:
                         if not prod_rmg_mol.isIsomorphic(reac_rmg_mol):
                             self.prod_mols.append(mol)

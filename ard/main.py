@@ -130,59 +130,64 @@ class ARD(object):
         gen.generateProducts(nbreak=self.nbreak, nform=self.nform)
         prod_mols = gen.prod_mols
         self.logger.info('{} possible products  generated\n'.format(len(prod_mols)))
-            
-        for reactant in prod_mols:
-            H298_reac = reactant.getH298(thermo_db)
-            self.logger.info('Filtering reactions...')
-            prod_mols_filtered = [mol for mol in prod_mols if self.filterThreshold(H298_reac, mol, thermo_db, **kwargs)]
-            self.logger.info('{} products  remaining\n'.format(len(prod_mols_filtered)))
-            
-            # Generate 3D geometries
-            if prod_mols_filtered:
-                self.logger.info('Feasible products:\n')
-                rxn_dir = util.makeOutputSubdirectory(self.output_dir, 'reactions')
+        H298_reac = []
+        for reactant in reac_mol:
+            aa = 0.0
+            aa += reactant.getH298(thermo_db)  
+            H298_reac.append(aa)
+        print(H298_reac)
+
+        
+        self.logger.info('Filtering reactions...')
+        prod_mols_filtered = [mol for mol in prod_mols if self.filterThreshold(H298_reac, mol, thermo_db, **kwargs)]
+        self.logger.info('{} products  remaining\n'.format(len(prod_mols_filtered)))
+        
+        # Generate 3D geometries
+        if prod_mols_filtered:
+            self.logger.info('Feasible products:\n')
+            rxn_dir = util.makeOutputSubdirectory(self.output_dir, 'reactions')
+
+            # These two lines are required so that new coordinates are
+            # generated for each new product. Otherwise, Open Babel tries to
+            # use the coordinates of the previous molecule if it is isomorphic
+            # to the current one, even if it has different atom indices
+            # participating in the bonds. a hydrogen atom is chosen
+            # arbitrarily, since it will never be the same as any of the
+            # product structures.
+            Hatom = gen3D.readstring('smi', '[H]')
+            ff = pybel.ob.OBForceField.FindForceField(self.forcefield)
+            for reactant in reac_mol:
+                reac_mol_copy = reactant.copy()
+                for rxn, mol in enumerate(prod_mols_filtered):
+                    mol.gen3D(forcefield=self.forcefield, make3D=False)
+                    arrange3D = gen3D.Arrange3D(reactant, mol)
+                    msg = arrange3D.arrangeIn3D()
+                    if msg != '':
+                        self.logger.info(msg)
     
-                # These two lines are required so that new coordinates are
-                # generated for each new product. Otherwise, Open Babel tries to
-                # use the coordinates of the previous molecule if it is isomorphic
-                # to the current one, even if it has different atom indices
-                # participating in the bonds. a hydrogen atom is chosen
-                # arbitrarily, since it will never be the same as any of the
-                # product structures.
-                Hatom = gen3D.readstring('smi', '[H]')
-                ff = pybel.ob.OBForceField.FindForceField(self.forcefield)
-                for reactant in reac_mol:
-                    reac_mol_copy = reactant.copy()
-                    for rxn, mol in enumerate(prod_mols_filtered):
-                        mol.gen3D(forcefield=self.forcefield, make3D=False)
-                        arrange3D = gen3D.Arrange3D(reactant, mol)
-                        msg = arrange3D.arrangeIn3D()
-                        if msg != '':
-                            self.logger.info(msg)
-        
-                        ff.Setup(Hatom.OBMol)  # Ensures that new coordinates are generated for next molecule (see above)
-                        reactant.gen3D(make3D=False)
-                        ff.Setup(Hatom.OBMol)
-                        mol.gen3D(make3D=False)
-                        ff.Setup(Hatom.OBMol)
-        
-                        reactant = reactant.toNode()
-                        product = mol.toNode()
-        
-                        rxn_num = '{:04d}'.format(rxn)
-                        output_dir = util.makeOutputSubdirectory(rxn_dir, rxn_num)
-                        kwargs['output_dir'] = output_dir
-                        kwargs['name'] = rxn_num
-        
-                        self.logger.info('Product {}: {}\n{}\n****\n{}\n'.format(rxn, product.toSMILES(), reactant, product))
-                        self.makeInputFile(reactant, product, **kwargs)
-        
-                        reac_mol.setCoordsFromMol(reac_mol_copy)
-            else:
-                self.logger.info('No feasible products found')
+                    ff.Setup(Hatom.OBMol)  # Ensures that new coordinates are generated for next molecule (see above)
+                    reactant.gen3D(make3D=False)
+                    ff.Setup(Hatom.OBMol)
+                    mol.gen3D(make3D=False)
+                    ff.Setup(Hatom.OBMol)
     
-            # Finalize
-            self.finalize(start_time)
+                    reactant = reactant.toNode()
+                    product = mol.toNode()
+    
+                    rxn_num = '{:04d}'.format(rxn)
+                    output_dir = util.makeOutputSubdirectory(rxn_dir, rxn_num)
+                    kwargs['output_dir'] = output_dir
+                    kwargs['name'] = rxn_num
+    
+                    self.logger.info('Product {}: {}\n{}\n****\n{}\n'.format(rxn, product.toSMILES(), reactant, product))
+                    self.makeInputFile(reactant, product, **kwargs)
+    
+                    reac_mol.setCoordsFromMol(reac_mol_copy)
+        else:
+            self.logger.info('No feasible products found')
+
+        # Finalize
+        self.finalize(start_time)
 
     def finalize(self, start_time):
         """
@@ -198,7 +203,7 @@ class ARD(object):
         `self.dh_cutoff`, `False` otherwise.
         """
         H298_prod = prod_mol.getH298(thermo_db)
-        dH = H298_prod - H298_reac
+        dH = H298_prod - H298_reac[0]
 
         if dH < self.dh_cutoff:
             return True

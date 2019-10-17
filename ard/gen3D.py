@@ -566,8 +566,12 @@ class Arrange3D(object):
         self.d_intermol = d_intermol
         self.d_intramol = d_intramol
 
-        bonds_mol_1 = [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1)
-                       for bond in pybel.ob.OBMolBondIter(mol_1.OBMol)]
+        reactant_1 = [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1)
+                       for bond in pybel.ob.OBMolBondIter(mol_1[1].OBMol)]
+        reactant_2 = [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1)
+                       for bond in pybel.ob.OBMolBondIter(mol_1[0].OBMol)]
+
+        bonds_mol_1 = reactant_1 + reactant_2
         bonds_mol_2 = [(bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1)
                        for bond in pybel.ob.OBMolBondIter(mol_2.OBMol)]
 
